@@ -1,0 +1,158 @@
+name: Zephyr development containers
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  base:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        sdk: [0.16.8]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GitHub Container Registry
+        # if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
+        id: build-and-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./zephyr-base/Dockerfile
+          # push: ${{ github.event_name != 'pull_request' }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/zephyr_container:base-${{ matrix.sdk }}SDK
+          build-args: |
+            ZEPHYR_SDK_VERSION=${{ matrix.sdk }}
+
+  archs:
+    needs: [base]
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        sdk: [0.16.8]
+        toolchain: [
+          { arch: "aarch64-zephyr-elf", nick: "aarch64"},
+          { arch: "arc64-zephyr-elf", nick: "arc64"},
+          { arch: "arc-zephyr-elf", nick: "arc"},
+          { arch: "arm-zephyr-eabi", nick: "arm"},
+          { arch: "microblazeel-zephyr-elf", nick: "microblazeel"},
+          { arch: "mips-zephyr-elf", nick: "mips"},
+          { arch: "nios2-zephyr-elf", nick: "nios2"},
+          { arch: "riscv64-zephyr-elf", nick: "riscv64"},
+          { arch: "sparc-zephyr-elf", nick: "sparc"},
+          { arch: "x86_64-zephyr-elf", nick: "x86_64"},
+          { arch: "xtensa-dc233c_zephyr-elf", nick: "xtensa-dc233c"},
+          { arch: "xtensa-espressif_esp32_zephyr-elf", nick: "xtensa-espressif_esp32"},
+          { arch: "xtensa-espressif_esp32s2_zephyr-elf", nick: "xtensa-espressif_esp32s2"},
+          { arch: "xtensa-espressif_esp32s3_zephyr-elf", nick: "xtensa-espressif_esp32s3"},
+          { arch: "xtensa-intel_ace15_mtpm_zephyr-elf", nick: "xtensa-intel_ace15_mtpm"},
+          { arch: "xtensa-intel_tgl_adsp_zephyr-elf", nick: "xtensa-intel_tgl_adsp"},
+          { arch: "xtensa-mtk_mt8195_adsp_zephyr-elf", nick: "xtensa-mtk_mt8195_adsp"},
+          { arch: "xtensa-nxp_imx_adsp_zephyr-elf", nick: "xtensa-nxp_imx_adsp"},
+          { arch: "xtensa-nxp_imx8m_adsp_zephyr-elf", nick: "xtensa-nxp_imx8m_adsp"},
+          { arch: "xtensa-nxp_imx8ulp_adsp_zephyr-elf", nick: "xtensa-nxp_imx8ulp_adsp"},
+          { arch: "xtensa-nxp_rt500_adsp_zephyr-elf", nick: "xtensa-nxp_rt500_adsp"},
+          { arch: "xtensa-sample_controller_zephyr-elf", nick: "xtensa-sample_controller"},
+          { arch: "xtensa-nxp_rt600_adsp_zephyr-elf", nick: "xtensa-nxp_rt600_adsp"}
+        ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GitHub Container Registry
+        # if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push arch-specific images
+        id: build-and-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./zephyr/Dockerfile
+          # push: ${{ github.event_name != 'pull_request' }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/zephyr_container:${{ matrix.toolchain.nick }}-${{ matrix.sdk }}SDK
+          build-args: |
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/zephyr_container:base-${{ matrix.sdk }}SDK
+            ZEPHYR_SDK_TOOLCHAINS=-t ${{ matrix.toolchain.arch }}
+            ZEPHYR_SDK_VERSION=${{ matrix.sdk }}
+
+  posix:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        sdk: [0.16.8]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into GitHub Container Registry
+        # if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
+        id: build-and-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./zephyr-posix/Dockerfile
+          # push: ${{ github.event_name != 'pull_request' }}
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/zephyr_container:posix-${{ matrix.sdk }}SDK
+          build-args: |
+            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/zephyr_container:base-${{ matrix.sdk }}SDK
+            ZEPHYR_SDK_VERSION=${{ matrix.sdk }}

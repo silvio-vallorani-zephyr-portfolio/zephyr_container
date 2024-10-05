@@ -1,2 +1,2 @@
 # zephyr_container
-  Template of a containerized Zephyr development environment 
+Template of a containerized Zephyr development environment 
